@@ -49,6 +49,26 @@ def scrap_list_page(url):
     return agency_links
 
 
+
+def decode_cfemail(cfemail_data):
+    """Decode Cloudflare protected email"""
+    # Extract the encoded string
+    encoded = cfemail_data
+    
+    # First character is the XOR key
+    key = int(encoded[:2], 16)
+    
+    # Decode the rest (each 2 chars is a hex byte)
+    decoded = ''
+    for i in range(2, len(encoded), 2):
+        byte = int(encoded[i:i+2], 16)
+        decoded_char = chr(byte ^ key)
+        decoded += decoded_char
+    
+    return decoded
+
+
+
 def scrap_detail_page(url):
     headers = {"User-Agent": "Mozilla/5.0"}
     response = requests.get(url, headers=headers)
@@ -60,15 +80,23 @@ def scrap_detail_page(url):
     name = soup.find("div", id="home").find("span").text.strip()
     details['Name'] = name if name else "N/A"
 
+    #6
+    cate = soup.find("div", id="home").find("div", class_=["text-color-white","text-left","font-inter","font-medium","text-lg"]).text.strip()
+    details['Category'] = cate if cate else "N/A"
+
     #2
     email_link = soup.find("div", id="contact").find_all("a", href=True)
     email = "N/A"
 
     for a in email_link:
-        email_span = a.find("span", string=re.compile(r"@"))
+        email_span = a.find("span", class_="__cf_email__")
+    
         if email_span:
-            email = email_span.text.strip()
-            break
+            cfemail_data = email_span.get('data-cfemail')
+            if cfemail_data:
+                email = decode_cfemail(cfemail_data)
+            else:
+                email = email_span.text
 
     details['Email'] = email
     
@@ -91,12 +119,29 @@ def scrap_detail_page(url):
     address = "N/A"
 
     for li in address_tag:
-        address_span = li.find("span", string=re.compile(r"Bangladesh|Dhaka|Chittagong|Sylhet", re.IGNORECASE))
+        address_span = li.find("span", string=re.compile(r"^(?!http|https|www\.).*(Bangladesh|Dhaka|Chittagong|Sylhet)", re.IGNORECASE))
         if address_span:
             address = address_span.text.strip()
             break
 
     details['Address'] = address
+
+    #7
+    cities = sorted([
+    "Bagerhat", "Bandarban","Brahmanbaria", "Chandpur", "Chittagong", "Comilla", "Cox's Bazar", "Dhaka", "Sunamganj", "Sylhet", "Tangail", "Thakurgaon"])
+
+    parts = [p.strip() for p in address.split(',')]
+
+    result = None
+    for part in parts:
+        for city in cities:
+            if city in part:
+                result = city
+                break
+        if result:
+            break
+
+    details['District'] = result if result else "N/A"
 
     #5
     web_tag = soup.find("div", id="contact").find_all("a", href=True)
