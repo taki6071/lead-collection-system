@@ -1,22 +1,18 @@
 import pandas as pd
 import ast
 
-# Load the messed up CSV
 df_messed = pd.read_csv('leads.csv')
 
-# Convert each cell from string dictionary to actual dictionary
 all_rows = []
 for col in df_messed.columns:
     for cell in df_messed[col]:
-        if pd.notna(cell):  # Skip empty cells
+        if pd.notna(cell): 
             try:
-                # Convert string to dictionary
                 row_dict = ast.literal_eval(cell)
                 all_rows.append(row_dict)
             except:
                 print(f"Failed to parse: {cell}")
 
-# Create proper DataFrame
 df_clean = pd.DataFrame(all_rows)
 
 print("✅ Cleaned DataFrame created!")
